@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from typing import List, Optional
 import datetime
 
-# --- Tag Schemas ---
 class TagBase(BaseModel):
     name: str
 
@@ -14,24 +13,32 @@ class Tag(TagBase):
     class Config:
         orm_mode = True
 
-# --- Document Schemas ---
+
+class UserSummary(BaseModel):
+    id: int
+    name: str
+    email: str
+    class Config:
+        from_attributes = True
+
+
 class DocumentVersion(BaseModel):
     id: int
     version_number: int
     created_at: datetime.datetime
-    uploaded_by_user_id: int
+    uploader: UserSummary 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Document(BaseModel):
     id: int
     title: str
+    creator: UserSummary 
     tags: List[Tag] = []
     versions: List[DocumentVersion] = []
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-# --- User Schemas ---
 class UserBase(BaseModel):
     email: str
     name: str
@@ -46,7 +53,13 @@ class User(UserBase):
     class Config:
         orm_mode = True
 
-# --- Auth Schemas ---
+class Department(BaseModel):
+    id: int
+    name: str
+    
+    class Config:
+        from_attributes = True
+
 class Token(BaseModel):
     access_token: str
     token_type: str

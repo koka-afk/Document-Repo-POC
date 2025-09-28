@@ -15,7 +15,7 @@ function UploadPage() {
 
     const formData = new FormData();
     formData.append('title', title);
-    formData.append('tags', tags); // e.g., "Finance,Report"
+    formData.append('tags', tags);
     formData.append('file', file);
 
     try {

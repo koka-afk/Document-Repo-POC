@@ -28,7 +28,8 @@ function SearchPage() {
         <ul>
           {results.map((doc) => (
             <li key={doc.id}>
-              <Link to={`/documents/${doc.id}`}>{doc.title}</Link>
+                <Link to={`/documents/${doc.id}`}>{doc.title}</Link>
+                <span> (Created by: {doc.creator.name})</span>
             </li>
           ))}
         </ul>

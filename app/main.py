@@ -7,41 +7,42 @@ from datetime import timedelta
 import shutil
 from contextlib import asynccontextmanager
 
+from jose import JWTError, jwt
+from .schemas import TokenData
+
 from . import crud, models, schemas, security
 from .database import SessionLocal, engine
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login/")
 
 # Create DB tables
 models.Base.metadata.create_all(bind=engine)
 
-# TODO Seed DB Before Starting 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # This code runs on startup
+    # This code runs on startup to seed tge db
     db = SessionLocal()
     try:
         crud.seed_initial_data(db)
     finally:
         db.close()
     yield
-    # Code below yield runs on shutdown (if any)
 
 app = FastAPI(lifespan=lifespan)
 
-# Add this middleware configuration
 origins = [
-    "http://localhost:5173", # The default port for Vite React app
+    "http://localhost:5173",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Allows all methods (GET, POST, etc.)
-    allow_headers=["*"], # Allows all headers
+    allow_methods=["*"], 
+    allow_headers=["*"], 
 )
 
-# Dependency to get a DB session
 def get_db():
     db = SessionLocal()
     try:
@@ -49,7 +50,26 @@ def get_db():
     finally:
         db.close()
 
-# --- 1. User Registration & Login ---
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+        token_data = TokenData(email=email)
+    except JWTError:
+        raise credentials_exception
+    
+    user = crud.get_user_by_email(db, email=token_data.email)
+    if user is None:
+        raise credentials_exception
+    return user
+
 
 @app.post("/register/", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -74,33 +94,26 @@ def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2Passw
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# --- 2. Upload Document ---
-
-@app.post("/documents/upload/")
+@app.post("/documents/upload/", response_model=schemas.Document)
 def upload_document(
     db: Session = Depends(get_db),
     title: str = Form(...),
-    tags: str = Form(...), # e.g., "Finance,Legal,Report"
-    file: UploadFile = File(...)
-    # In a real app, you would get the current user from the token
-    # current_user: schemas.User = Depends(get_current_user)
+    tags: str = Form(...), 
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_user)
 ):
-    # For POC, let's assume a user ID
-    user_id = 1 
+    user_id = current_user.id
 
-    # 1. Save the file locally (in production, upload to S3/GCS)
     file_path = f"uploads/{file.filename}"
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # 2. Create document and version in DB
     tag_list = [t.strip() for t in tags.split(',')]
-    document = crud.create_document(db, title=title, user_id=user_id, file_path=file_path, tags=tag_list)
+    document = crud.handle_document_upload(db, title=title, user_id=user_id, file_path=file_path, tags=tag_list)
     
-    return {"filename": file.filename, "document_id": document.id, "title": document.title}
+    return document
 
 
-# --- 3. Search Documents ---
 
 @app.get("/documents/search/", response_model=List[schemas.Document])
 def search_documents(
@@ -112,7 +125,6 @@ def search_documents(
     return documents
 
 
-# --- 4. View/Download Document ---
 
 from fastapi.responses import FileResponse
 
@@ -123,13 +135,23 @@ def download_document(document_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Document not found")
     
     file_path = latest_version.storage_path
-    # This assumes the file exists at the path. Add error handling for production.
     return FileResponse(path=file_path, filename=file_path.split('/')[-1])
 
-# --- 5. Fetch Version History ---
 @app.get("/documents/{document_id}/versions/", response_model=List[schemas.DocumentVersion])
 def get_document_versions(document_id: int, db: Session = Depends(get_db)):
     versions = crud.get_all_document_versions(db, document_id=document_id)
     if not versions:
         raise HTTPException(status_code=404, detail="Document not found")
     return versions
+
+
+@app.post("/dev/reset-database/", status_code=status.HTTP_200_OK)
+def reset_db(db: Session = Depends(get_db)):
+    result = crud.reset_database(db)
+    return result
+
+
+@app.get("/departments/", response_model=list[schemas.Department])
+def read_departments(db: Session = Depends(get_db)):
+    departments = crud.get_departments(db)
+    return departments

@@ -3,7 +3,6 @@ from sqlalchemy.orm import relationship
 from .database import Base
 import datetime
 
-# Association tables (no changes needed from our schema design)
 document_tags = Table('document_tags', Base.metadata,
     Column('document_id', Integer, ForeignKey('documents.id'), primary_key=True),
     Column('tag_id', Integer, ForeignKey('tags.id'), primary_key=True)
@@ -35,6 +34,7 @@ class Document(Base):
     title = Column(String, nullable=False)
     latest_version_id = Column(Integer, ForeignKey("document_versions.id"))
     created_by_user_id = Column(Integer, ForeignKey("users.id"))
+    creator = relationship("User") 
 
     tags = relationship("Tag", secondary=document_tags, back_populates="documents")
     permissions = relationship("Department", secondary=document_permissions)
@@ -44,13 +44,12 @@ class Document(Base):
         foreign_keys="[DocumentVersion.document_id]"
     )
     
-    # This relationship lets us easily access the latest version object.
-    # We tell it to use THIS table's latest_version_id column.
+   
     latest_version = relationship(
         "DocumentVersion", 
         foreign_keys=[latest_version_id],
-        uselist=False, # It's a one-to-one link
-        post_update=True # Helps resolve creation dependency cycles
+        uselist=False,
+        post_update=True 
     )
 
 class DocumentVersion(Base):
@@ -60,6 +59,8 @@ class DocumentVersion(Base):
     version_number = Column(Integer, nullable=False)
     storage_path = Column(String, nullable=False)
     uploaded_by_user_id = Column(Integer, ForeignKey("users.id"))
+    uploader = relationship("User") 
+
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     document = relationship(
             "Document", 

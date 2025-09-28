@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../services/api';
+import { login as apiLogin } from '../services/api'; 
+import { useAuth } from '../context/AuthContext';   
 
 function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await login(email, password);
-      localStorage.setItem('accessToken', response.data.access_token);
+      const response = await apiLogin(email, password); 
+      login(response.data.access_token); 
       alert('Login successful!');
-      navigate('/search'); // Redirect to search page
+      navigate('/search');
     } catch (error) {
       alert('Failed to login. Please check your credentials.');
       console.error(error);
