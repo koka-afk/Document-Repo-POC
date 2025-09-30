@@ -27,6 +27,7 @@ class DocumentVersion(BaseModel):
     version_number: int
     created_at: datetime.datetime
     uploader: UserSummary 
+    storage_path: str
     class Config:
         from_attributes = True
 

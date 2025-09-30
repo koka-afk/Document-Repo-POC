@@ -9,6 +9,7 @@ function DocumentDetailPage() {
     const fetchVersions = async () => {
       try {
         const response = await getDocumentVersions(id);
+        console.log(response);
         setVersions(response.data);
       } catch (error) {
         console.error("Failed to fetch versions:", error);
@@ -18,7 +19,9 @@ function DocumentDetailPage() {
   }, [id]);
 
   const createFilename = (version) => {
+    console.log(version)
     const originalFilename = version.storage_path.split('/').pop() || `document_${id}.bin`;
+    console.log(originalFilename)
     const [name, ext] = originalFilename.split('.');
     return `${name}_v${version.version_number}.${ext || 'bin'}`;
   }

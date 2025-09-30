@@ -135,7 +135,12 @@ def download_document(document_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Document not found")
     
     file_path = latest_version.storage_path
-    return FileResponse(path=file_path, filename=file_path.split('/')[-1])
+    original_filename = file_path.split('/')[-1]
+    return FileResponse(
+        path=file_path,
+        filename=original_filename,
+        media_type='application/octet-stream'
+    )
 
 @app.get("/documents/{document_id}/versions/", response_model=List[schemas.DocumentVersion])
 def get_document_versions(document_id: int, db: Session = Depends(get_db)):
